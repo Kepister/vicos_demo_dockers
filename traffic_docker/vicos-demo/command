@@ -1,0 +1,1 @@
+/opt/run_main.py --cfg=/opt/tsr-detectron-model/config.yaml --wts=/opt/tsr-detectron-model/model_final.pkl --cat=/opt/dfg_catalog outContainer1 inContainer1
