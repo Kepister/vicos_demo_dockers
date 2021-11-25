@@ -11,8 +11,14 @@ ENV WD /home
 
 WORKDIR ${WD}
 
+######
+
+RUN add-apt-repository ppa:ubuntu-toolchain-r/ppa && apt-get update && apt-get install python3.7 python3.7-numpy
+
+#######
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential cmake git python3-dev python3-numpy-dev python3-pip libopencv-dev && \
+    build-essential cmake git software-properties-common libopencv-dev wget python3-dev python3-numpy-dev python3-pip && \
     apt-get clean && rm -rf /var/lib/apt/lists/*
 
 ##################################
@@ -43,12 +49,6 @@ RUN cd ${WD}/flycapture && /bin/bash install_flycapture.sh
 
 RUN python3 ${WD}/pyCapture/setup.py install
 
-# Install Allied Vision SDK
-RUN cd ${WD} && wget https://download.alliedvision.com/Vimba_v5.0_Linux.tgz
-RUN tar -xzf Vimba_v5.0_Linux.tgz
-RUN cd ${WD}/Vimba_v5.0_Linux/Vimba_5_0/VimbaGigETL/Install.sh
-RUN cd ${WD}/Vimba_v5.0_Linux/Vimba_5_0/VimbaUSBTL/Install.sh
-RUN cd ${WD}/Vimba_v5.0_Linux/Vimba_5_0/VimbaPython/Install.sh
 
 # define entry-point and default arguments
 ENTRYPOINT ["/bin/bash"]
