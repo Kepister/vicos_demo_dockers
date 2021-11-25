@@ -43,5 +43,12 @@ RUN cd ${WD}/flycapture && /bin/bash install_flycapture.sh
 
 RUN python3 ${WD}/pyCapture/setup.py install
 
+# Install Allied Vision SDK
+RUN cd ${WD} && wget https://download.alliedvision.com/Vimba_v5.0_Linux.tgz
+RUN tar -xzf Vimba_v5.0_Linux.tgz
+RUN cd ${WD}/Vimba_v5.0_Linux/Vimba_5_0/VimbaGigETL/Install.sh
+RUN cd ${WD}/Vimba_v5.0_Linux/Vimba_5_0/VimbaUSBTL/Install.sh
+RUN cd ${WD}/Vimba_v5.0_Linux/Vimba_5_0/VimbaPython/Install.sh
+
 # define entry-point and default arguments
 ENTRYPOINT ["/bin/bash"]
