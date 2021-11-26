@@ -18,7 +18,8 @@ def VimbaCameraLoop(echlLoop, cameraOut):
 
                 frame = cam.get_frame()
                 frame.convert_pixel_format(PixelFormat.Bgr8)
-                frame = cv2.resize(frame.as_opencv_image(), (1920, 1080), interpolation = cv2.INTER_AREA)
+                frame = frame.as_opencv_image()
+                #frame = cv2.resize(frame.as_opencv_image(), (1920, 1080), interpolation = cv2.INTER_AREA)
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
                 print(f"Reading camera ... {frame[0:5, 0:5, :]}")
