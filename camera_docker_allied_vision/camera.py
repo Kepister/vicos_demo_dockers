@@ -8,6 +8,8 @@ from vimba import *
 
 def VimbaCameraLoop(echlLoop, cameraOut):
 
+    n_frames = 0
+
     with Vimba.get_instance() as vimba:
 
         cams = vimba.get_all_cameras()
@@ -22,7 +24,8 @@ def VimbaCameraLoop(echlLoop, cameraOut):
                 #frame = cv2.resize(frame.as_opencv_image(), (1920, 1080), interpolation = cv2.INTER_AREA)
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-                print(f"Reading camera ... {frame[0:5, 0:5, :]}")
+                print(f"Sending frame ... {n_frames}")
+                n_frames += 1
 
                 writer = pyecho.MessageWriter()
                 echocv.writeMat(writer, frame)

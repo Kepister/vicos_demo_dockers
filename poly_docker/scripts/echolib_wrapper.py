@@ -8,6 +8,7 @@ from threading import Thread, Lock
 
 
 class EcholibWrapper:
+    
     def __init__(self, detection_method, out_channel, in_channel):
 
         self.loop   = pyecho.IOLoop()
@@ -45,10 +46,10 @@ class EcholibWrapper:
 
     def cameraCallback(self, message):
 
-        self.frameInLock.acquire()
+        #self.frameInLock.acquire()
         self.frameIn    = echocv.readMat(pyecho.MessageReader(message))
         self.frameInNew = True
-        self.frameInLock.release()
+        #self.frameInLock.release()
 
     def process(self):
         
@@ -61,20 +62,21 @@ class EcholibWrapper:
 
                 print("Detecting polyps...")
 
-                self.frameInLock.acquire()
-                frame = self.frameIn.copy()
+                #self.frameInLock.acquire()
+                #frame = self.frameIn.copy()
+                frame = self.frameIn
                 self.frameInNew = False
-                self.frameInLock.release()
+                #self.frameInLock.release()
             
                 frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
                 frame = self.detection_method.predict(frame)
                 self.enabled = False
 
             if frame is not None:
-                self.frameOutLock.acquire()
+                #self.frameOutLock.acquire()
                 self.frameOut    = frame
                 self.frameOutNew = True
-                self.frameOutLock.release()
+                #self.frameOutLock.release()
 
     def run(self, wait_sec=10, sleep_sec=0):
 
@@ -91,17 +93,17 @@ class EcholibWrapper:
 
         while self.loop.wait(wait_sec):
 
-            self.frameOutLock.acquire()
+            #self.frameOutLock.acquire()
             if self.frameOutNew:
                 writer = pyecho.MessageWriter()
                 echocv.writeMat(writer, self.frameOut)
                 self.dockerCommandOut.send(writer)
 
                 self.frameOutNew = False
-            self.frameOutLock.release()
+            #self.frameOutLock.release()
 
-            if sleep_sec > 0:
-                time.sleep(sleep_sec)
+            """ if sleep_sec > 0:
+                time.sleep(sleep_sec) """
 
         print("Stop")
 
