@@ -1,77 +1,76 @@
+#!/usr/bin/env python3
+
 import numpy as np
-from echolib import pyecho
-import echocv
-import cv2
-import sys, getopt
+from json import load
 
-from vimba import *
+import copy
+import echolib
+from   echolib.camera import FramePublisher, Frame
 
-def VimbaCameraLoop(echlLoop, cameraOut):
+from vimba import Vimba, PixelFormat, FrameStatus
+from threading import Lock, get_ident
 
-    n_frames = 0
+class VimbaCameraHandler():
 
-    with Vimba.get_instance() as vimba:
+    def __init__(self):
 
-        cams = vimba.get_all_cameras()
+        self.frame = None
+        self.frame_lock = Lock()
 
-        with cams[0] as cam:
+    def frame_handler(self, camera, frame):
 
-            while echlLoop.wait(1):
+        print(f"Frame_handler: {get_ident()}")
+        
+        if frame.get_status() == FrameStatus.Complete:
+            
+            frame_copy = copy.deepcopy(frame)
+            frame_copy.convert_pixel_format(PixelFormat.Rgb8)
+            frame_copy = frame_copy.as_numpy_ndarray()
 
-                frame = cam.get_frame()
-                frame.convert_pixel_format(PixelFormat.Bgr8)
-                frame = frame.as_opencv_image()
-                #frame = cv2.resize(frame.as_opencv_image(), (1920, 1080), interpolation = cv2.INTER_AREA)
-                frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            self.frame_lock.acquire()
+            self.frame = frame_copy
+            self.frame_lock.release()
 
-                print(f"Sending frame ... {n_frames}")
-                n_frames += 1
-
-                writer = pyecho.MessageWriter()
-                echocv.writeMat(writer, frame)
-                cameraOut.send(writer)
-
-def CVCameraLoop(echlLoop, cameraOut):
-    
-    camera = cv2.VideoCapture(0)
-
-    while echlLoop.wait(1):
-
-        _, frame = camera.read()
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
-        writer = pyecho.MessageWriter()
-        echocv.writeMat(writer, frame)
-        cameraOut.send(writer)
-
-    camera.release()
+        camera.queue_frame(frame)
 
 def main():
 
-    CVCAMERA = False
+    # Load camera parameters
+    config = load(open("/opt/config/camera0.json"))
+    config_set_functions = \
+    {
+        "ExposureAuto": lambda camera, v: camera.ExposureAuto.set(int(v)),
+        "DeviceLinkThroughputLimit": lambda camera, v: camera.DeviceLinkThroughputLimit.set(int(v)),
+        "AcquisitionFrameRateEnable": lambda camera, v: camera.AcquisitionFrameRateEnable.set(bool(int(v)))
+    }
 
-    try:
-        opts, args = getopt.getopt(sys.argv[1:], "c:")
-    except getopt.GetoptError:
-        print("dockerCameraScript -c <1/0>")
-        return
+    #####################################
 
-    for opt, arg in opts:
-        if opt == '-c':
-            CVCAMERA = arg == '1'
+    loop   = echolib.IOLoop()
+    client = echolib.Client()
+    loop.add_handler(client)
 
-    # Echolib publisher
-    echlLoop = pyecho.IOLoop()
-    echlClient = pyecho.Client()
-    echlLoop.add_handler(echlClient)
-
-    cameraOut = pyecho.Publisher(echlClient, "cameraStream", "numpy.ndarray")
-
-    if CVCAMERA:
-        CVCameraLoop(echlLoop, cameraOut)
-    else:
-        VimbaCameraLoop(echlLoop, cameraOut)
+    output = FramePublisher(client, "camera")
     
+    with Vimba.get_instance() as vimba_instance:
+
+        handler = VimbaCameraHandler()
+        vimba_cameras = vimba_instance.get_all_cameras()
+
+        with vimba_cameras[0] as vimba_camera:
+
+            for feature in config:
+                config_set_functions[feature](vimba_camera, config[feature])
+
+            vimba_camera.start_streaming(handler.frame_handler, buffer_count = 10)
+
+            while loop.wait(1):
+
+                if handler.frame is not None:
+                    print(f"Main loop: {get_ident()}")
+                    output.send(Frame(image = handler.frame))
+        
+        vimba_camera.stop_streaming()
 
 
 if __name__=='__main__':
