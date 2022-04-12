@@ -1,4 +1,4 @@
-FROM echolib
+FROM echolib:20.04
 
 LABEL maintainer "pm4824@student.uni-lj.si"
 
@@ -24,4 +24,4 @@ RUN tar -xzf Vimba_v5.0_Linux.tgz && cd /opt/Vimba_5_0/VimbaUSBTL && ./Install.s
 
 ENV GENICAM_GENTL64_PATH=$GENICAM_GENTL64_PATH:"/opt/Vimba_5_0/VimbaUSBTL/CTI/x86_64bit"
 
-ENTRYPOINT ["/bin/bash"]
+ENTRYPOINT ["/opt/camera.py"]

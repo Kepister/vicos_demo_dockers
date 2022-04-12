@@ -1,109 +1,100 @@
 import time
 import cv2
 
-from echolib import pyecho
-import echocv
+import echolib
+from echolib.camera import Frame, FramePublisher, FrameSubscriber
 
-from threading import Thread, Lock
+from threading import Thread
 
 
 class EcholibWrapper:
     
-    def __init__(self, model, out_channel, in_channel):
+    def __init__(self, detection_method):
 
-        self.loop   = pyecho.IOLoop()
-        self.client = pyecho.Client()
+        self.loop   = echolib.IOLoop()
+        self.client = echolib.Client()
         self.loop.add_handler(self.client)
 
         self.enabled = False
 
-        self.dockerCommandOut = pyecho.Publisher(self.client, out_channel, "numpy.ndarray")
-        self.dockerReady      = pyecho.Publisher(self.client, "containerReady", "int")
+        self.docker_ready      = echolib.Publisher(self.client, "containerReady", "int")
+        self.docker_command_in = echolib.Subscriber(self.client, "docker_demo_command_input", "int", self._docker_command_callback)
+        
+        self.camera_stream    = FrameSubscriber(self.client, "camera_stream_0", self._camera_stream_callback)
+        self.docker_frame_out = FramePublisher(self.client, "docker_demo_output")
 
-        self.dockerCommandIn  = pyecho.Subscriber(self.client, in_channel, "int", self.callback)
-        self.dockerCameraIn   = pyecho.Subscriber(self.client, "cameraStream", "numpy.ndarray", self.cameraCallback)
+        self.detection_method = detection_method
 
-        self.model = model
+        self.frame_in    = None
+        self.frame_in_new = False
 
-        self.frameInLock   = Lock()
-        self.frameOutLock  = Lock()
-
-        self.frameIn    = None
-        self.frameInNew = False
-
-        self.frameOut    = None
-        self.frameOutNew = False 
+        self.frame_out    = None
+        self.frame_out_new = False 
 
         self.closing = False
 
-    def callback(self, message):
+        self.n_frames = 0
 
-        # TODO Maybe add some threading proctection?
-        self.enabled = True if (pyecho.MessageReader(message).readInt() != 0) else False
-        
+    def _docker_command_callback(self, message):
 
-    def cameraCallback(self, message):
+        self.enabled = echolib.MessageReader(message).readInt() != 0
 
-        self.frameInLock.acquire()
-        self.frameIn    = echocv.readMat(pyecho.MessageReader(message))
-        self.frameInNew = True
-        self.frameInLock.release()
+        print("Docker demo: got command {}".format(self.enabled))    
+
+    def _camera_stream_callback(self, message):
+
+        self.frame_in    = message.image
+        self.frame_in_new = True
+
+        self.n_frames += 1
+
+        print("Docker demo: reading camera stream {}".format(self.n_frames))
 
     def process(self):
         
-        # TODO Using self.closing in a thread unsafe manner
         while not self.closing:
 
-            self.frameInLock.acquire()
             frame = None
-            if self.frameInNew:
-                frame = self.frameIn.copy()
-                self.frameInNew = False
-                self.frameInLock.release()
 
-                # TODO Using enabled in a thread unsafe manner
-                if self.enabled:
-                    frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                    frame = self.model.doDetection(frame)
-                    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            else:
-                self.frameInLock.release()
+            if self.enabled and self.frame_in_new:
+
+                frame = self.frame_in
+                self.frame_in_new = False
+            
+                frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                frame = self.detection_method.predict(frame)
 
             if frame is not None:
-                self.frameOutLock.acquire()
-                self.frameOut    = frame
-                self.frameOutNew = True
-                self.frameOutLock.release()
 
+                self.frame_out    = frame
+                self.frame_out_new = True 
+            
+            time.sleep(0.01)
+            
     def run(self, wait_sec=10, sleep_sec=0):
 
-        self.loop.wait(10) # Maybe registering subscribers and publishers?
+        for i in range(0,10):
+            self.loop.wait(10)
 
-        writer = pyecho.MessageWriter()
-        writer.writeInt(1)
-        self.dockerReady.send(writer)
-
-        print("Starting thread...")
+            writer = echolib.MessageWriter()
+            writer.writeInt(1)
+            self.docker_ready.send(writer)
 
         thread = Thread(target = self.process)
         thread.start()
 
-        while self.loop.wait(wait_sec):
+        print("Starting...")
 
-            self.frameOutLock.acquire()
-            if self.frameOutNew:
-                writer = pyecho.MessageWriter()
-                echocv.writeMat(writer, self.frameOut)
-                self.dockerCommandOut.send(writer)
+        while self.loop.wait(1):
 
-                self.frameOutNew = False
-            self.frameOutLock.release()
+            print("In loop...")
 
-            if sleep_sec > 0:
-                time.sleep(sleep_sec)
+            if self.frame_out_new:
+                
+                self.docker_frame_out.send(Frame(image = self.frame_out))
+                self.frame_out_new = False 
 
+        print("Stop")
 
         thread.join()
-
-
 
