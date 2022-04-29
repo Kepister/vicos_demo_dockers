@@ -29,6 +29,7 @@ RUN python3 -m pip install --upgrade pip && python3 -m pip install setuptools
 RUN python3 -m pip install opencv-python>=4
 RUN python3 -m pip install torch==1.7.1+cu110 torchvision==0.8.2+cu110 torchaudio==0.7.2 -f https://download.pytorch.org/whl/torch_stable.html
 RUN python3 -m pip install efficientnet_pytorch
+RUN pip3 install future
 
 COPY scripts ${MODEL_DIR}
 

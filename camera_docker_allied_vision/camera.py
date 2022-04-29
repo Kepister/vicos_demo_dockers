@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from math import floor
 import numpy as np
 from json import load
 
@@ -9,7 +10,16 @@ from vimba import Vimba, PixelFormat, FrameStatus, Camera
 
 from echolib.camera import FramePublisher, Frame
 
-import time
+def setup_software_triggering(cam: Camera):
+    # Always set the selector first so that folling features are applied correctly!
+    cam.TriggerSelector.set('FrameStart')
+
+    # optional in this example but good practice as it might be needed for hadware triggering
+    cam.TriggerActivation.set('RisingEdge')
+
+    # Make camera listen to Software trigger
+    cam.TriggerSource.set('Software')
+    cam.TriggerMode.set('On')
 
 class VimbaCameraHandler():
 
@@ -32,16 +42,16 @@ class VimbaCameraHandler():
 
     def frame_handler(self, camera, frame):
 
-        #print("Got possible frame...")
+        print("Got possible frame...")
 
         if frame.get_status() == FrameStatus.Complete:
 
-            #print("Got complete frame...")
+            print("Got complete frame...")
 
             frame.convert_pixel_format(PixelFormat.Rgb8)
             frame_copy = frame.as_numpy_ndarray()
 
-            self.frame = frame_copy.copy()
+            self.frame = np.array(frame_copy)
 
             self.n_frames += 1
 
@@ -84,7 +94,7 @@ def main():
     config_set_functions = \
     {
         "ExposureAuto": lambda camera, v: camera.ExposureAuto.set(v),
-        #"DeviceLinkThroughputLimit":  lambda camera, v: camera.DeviceLinkThroughputLimit.set(int(v)),
+        "DeviceLinkThroughputLimit":  lambda camera, v: camera.DeviceLinkThroughputLimit.set(int(v)),
         "AcquisitionFrameRateEnable": lambda camera, v: camera.AcquisitionFrameRateEnable.set(bool(int(v)))
     }
 
@@ -111,7 +121,7 @@ def main():
         with vimba_cameras[0] as vimba_camera:
 
             handler.camera = vimba_camera
-
+    
             ###########################
             # Grab relevant ranges
             ###########################
@@ -137,8 +147,22 @@ def main():
 
                     config_set_functions[feature](vimba_camera, config[feature])
                 except Exception as e:
-                    print(f"[ERROR] Error while setting camera settings: {e}")
+                    print(f"[ERROR] Setting camera feature {feature} failer: {e}")
 
+            ###########################
+            # Get and set max frame rate
+            ###########################
+
+            range = vimba_camera.get_feature_by_name("AcquisitionFrameRate").get_range()
+            fr = floor(range[1])
+
+            print(f"Frame rate range: [{range[0]}, {range[1]}]: setting {fr}")
+
+            try:
+                vimba_camera.AcquisitionFrameRate.set(fr)
+            except Exception as e:
+                    print(f"[ERROR] Setting camera frame rate failed: {e}")  
+            
             ###########################
             # Send compleated frames  #
             ###########################
@@ -149,7 +173,7 @@ def main():
 
                 if handler.frame is not None:
 
-                    #print(f"Sending frame {handler.frame.shape}")
+                    print(f"Sending frame {handler.frame.shape}")
 
                     output.send(Frame(image = handler.frame))
 
@@ -158,7 +182,9 @@ def main():
 
             ###########################
         
-        vimba_camera.stop_streaming()
+            vimba_camera.stop_streaming()
+        
+        print("Stoped streming?")
 
 if __name__=='__main__':
     main()

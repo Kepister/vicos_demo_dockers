@@ -1,5 +1,5 @@
 {
     "ExposureAuto": "Off",
     "DeviceLinkThroughputLimit": "450000000",
-    "AcquisitionFrameRateEnable": "0"
+    "AcquisitionFrameRateEnable": "1"
 }

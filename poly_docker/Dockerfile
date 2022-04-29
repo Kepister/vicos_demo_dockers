@@ -27,6 +27,7 @@ COPY --from=echolib-base /usr/local/ /usr/local/
 # install dependencies for poco-demo
 RUN python3 -m pip install --upgrade pip && python3 -m pip install setuptools
 RUN python3 -m pip install tensorflow==2.6.2 opencv-python>=4
+RUN pip3 install future
 
 COPY scripts ${MODEL_DIR}
 
