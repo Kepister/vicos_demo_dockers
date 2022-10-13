@@ -42,11 +42,7 @@ class VimbaCameraHandler():
 
     def frame_handler(self, camera, frame):
 
-        print("Got possible frame...")
-
         if frame.get_status() == FrameStatus.Complete:
-
-            print("Got complete frame...")
 
             frame.convert_pixel_format(PixelFormat.Rgb8)
             frame_copy = frame.as_numpy_ndarray()
@@ -79,6 +75,21 @@ class VimbaCameraHandler():
                 value = float(value)
 
                 self.commands[command](self.camera, value)
+
+            self.camera.stop_streaming()
+
+            self.camera.AcquisitionFrameRateEnable.set(True)
+            range = self.camera.get_feature_by_name("AcquisitionFrameRate").get_range()
+            fr = floor(range[1])
+
+            print(f"Frame rate range: [{range[0]}, {range[1]}]: setting {fr}")
+
+            try:
+                self.camera.AcquisitionFrameRate.set(fr)
+            except Exception as e:
+                    print(f"[ERROR] Setting camera frame rate failed: {e}") 
+
+            self.camera.start_streaming(self.frame_handler, buffer_count = 1) 
 
         except Exception as e:
             print(f"[ERROR] Error while setting {command} = {value} | error print -> {e}")
@@ -149,9 +160,9 @@ def main():
                 except Exception as e:
                     print(f"[ERROR] Setting camera feature {feature} failer: {e}")
 
-            ###########################
-            # Get and set max frame rate
-            ###########################
+            ##############################
+            # Get and set max frame rate #
+            ##############################
 
             range = vimba_camera.get_feature_by_name("AcquisitionFrameRate").get_range()
             fr = floor(range[1])
@@ -172,8 +183,6 @@ def main():
             while loop.wait(1):
 
                 if handler.frame is not None:
-
-                    print(f"Sending frame {handler.frame.shape}")
 
                     output.send(Frame(image = handler.frame))
 

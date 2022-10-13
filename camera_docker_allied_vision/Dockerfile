@@ -12,9 +12,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python3 -m pip install --upgrade pip && python3 -m pip install setuptools
 RUN python3 -m pip install opencv-python>=3 cython
 
-COPY camera.py /opt/camera.py
-RUN chmod +x /opt/camera.py
-
 RUN mkdir /etc/udev
 RUN mkdir /etc/udev/rules.d
 
@@ -23,5 +20,8 @@ RUN cd /opt && wget https://downloads.alliedvision.com/Vimba_v5.0_Linux.tgz
 RUN tar -xzf Vimba_v5.0_Linux.tgz && cd /opt/Vimba_5_0/VimbaUSBTL && ./Install.sh && cd /opt/Vimba_5_0/VimbaPython && ./Install.sh
 
 ENV GENICAM_GENTL64_PATH=$GENICAM_GENTL64_PATH:"/opt/Vimba_5_0/VimbaUSBTL/CTI/x86_64bit"
+
+COPY camera.py /opt/camera.py
+RUN chmod +x /opt/camera.py
 
 ENTRYPOINT ["/opt/camera.py"]

@@ -22,8 +22,11 @@ RESIZE = (480, 480)
 imagenet_mean = np.array([0.485, 0.456, 0.406])
 imagenet_std = np.array([0.229, 0.224, 0.225])
 
-MODEL_FILE = "m1.pth"
-MODEL_SEG_FILE = "ms1.pth"
+MODEL_FILE = "6_FINAL.pth"
+MODEL_SEG_FILE = "6_seg_FINAL.pth"
+
+#MODEL_FILE = "1_BEST.pth"
+#MODEL_SEG_FILE = "1_seg_BEST.pth"
 
 
 class ReconstructiveSubNetwork(nn.Module):
@@ -375,6 +378,7 @@ class PModel:
 
     def predict(self, image):
         final_cropped, contours, tx, ty = crop_part(image, CROP_PIXEL)
+        final_cropped = cv2.cvtColor(final_cropped, cv2.COLOR_BGR2RGB)
 
         # image_t = T.Compose([T.Resize(RESIZE, Image.ANTIALIAS), T.ToTensor(),                             T.Normalize(mean=imagenet_mean, std=imagenet_std)])(Image.fromarray(image_cv2)).unsqueeze(0).to(DEVICE)
         image_t = T.Compose([T.Resize(RESIZE, Image.ANTIALIAS), T.ToTensor()])(Image.fromarray(final_cropped)).unsqueeze(0).to(DEVICE)
@@ -394,8 +398,8 @@ class PModel:
         drawn_contours = cv2.drawContours(image, contours, 0, c, 20)
         drawn_contours = cv2.putText(drawn_contours, f"{image_score * 100:.1f}", (tx, ty), cv2.FONT_HERSHEY_TRIPLEX, 5, c, TEXT_THICKNES)
 
-        return cv2.cvtColor(out_mask_averaged, cv2.COLOR_GRAY2RGB)
-        #return cv2.cvtColor(drawn_contours, cv2.COLOR_BGR2RGB)
+        #return cv2.cvtColor(out_mask_averaged, cv2.COLOR_GRAY2RGB)
+        return cv2.cvtColor(drawn_contours, cv2.COLOR_BGR2RGB)
 
         # return out_mask_averaged, image_score, final_cropped
 
